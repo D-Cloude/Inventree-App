@@ -8,6 +8,7 @@ import "package:inventree/l10.dart";
 import "package:inventree/barcode/tones.dart";
 
 import "package:inventree/inventree/sentry.dart";
+import "package:inventree/inventree/stock.dart";
 
 import "package:inventree/widget/dialogs.dart";
 import "package:inventree/widget/snacks.dart";
@@ -20,6 +21,9 @@ import "package:inventree/widget/snacks.dart";
  */
 class BarcodeHandler {
   BarcodeHandler();
+
+  // Return true if this handler should attempt to search for a stock item by batch code
+  bool get searchByBatchCode => false;
 
   // Return the text to display on the barcode overlay
   // Note: Will be overridden by child classes
@@ -76,6 +80,23 @@ class BarcodeHandler {
       return;
     }
 
+    // Try searching by batch code first
+    if (searchByBatchCode) {
+      final stockItems = await InvenTreeStockItem().list(
+        filters: {"batch": barcode},
+      );
+
+      if (stockItems.isNotEmpty) {
+        // Match found!
+        await onBarcodeMatched({
+          "stockitem": {"pk": stockItems.first.pk},
+          "barcode_data": barcode,
+          "success": "Match found for batch code",
+        });
+        return;
+      }
+    }
+
     APIResponse? response;
 
     try {
@@ -99,12 +120,17 @@ class BarcodeHandler {
 
     Map<String, dynamic> data = response.asMap();
 
+    // Ensure barcode data is passed through
+    if (!data.containsKey("barcode_data")) {
+      data["barcode_data"] = barcode;
+    }
+
     // Handle strange response from the server
     if (!response.isValid() || !response.isMap()) {
-      await onBarcodeUnknown({});
+      await onBarcodeUnknown({"barcode_data": barcode});
 
       showSnackIcon(L10().serverError, success: false);
-
+    ...
       // We want to know about this one!
       await sentryReportMessage(
         "BarcodeHandler.processBarcode returned unexpected value",

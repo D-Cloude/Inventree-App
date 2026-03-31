@@ -30,7 +30,9 @@ class _StocktakeEntry {
  * then submit all counts at once to the server via stock/count/.
  */
 class StocktakeWidget extends StatefulWidget {
-  const StocktakeWidget({Key? key}) : super(key: key);
+  const StocktakeWidget({this.location, Key? key}) : super(key: key);
+
+  final InvenTreeStockLocation? location;
 
   @override
   _StocktakeState createState() => _StocktakeState();
@@ -39,6 +41,37 @@ class StocktakeWidget extends StatefulWidget {
 class _StocktakeState extends State<StocktakeWidget> {
   final List<_StocktakeEntry> _entries = [];
   bool _submitting = false;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.location != null) {
+      _loadLocationItems();
+    }
+  }
+
+  Future<void> _loadLocationItems() async {
+    setState(() => _loading = true);
+
+    final items = await InvenTreeStockItem().list(filters: {
+      "location": widget.location!.pk.toString(),
+      "in_stock": "true",
+    });
+
+    if (mounted) {
+      setState(() {
+        for (var item in items) {
+          if (item is InvenTreeStockItem) {
+            _entries.add(
+              _StocktakeEntry(item: item, countedQuantity: item.quantity),
+            );
+          }
+        }
+        _loading = false;
+      });
+    }
+  }
 
   // Add or update a stock item in the list
   void _addItem(InvenTreeStockItem item) {
@@ -155,9 +188,14 @@ class _StocktakeState extends State<StocktakeWidget> {
 
   @override
   Widget build(BuildContext context) {
+    String title = L10().stocktake;
+    if (widget.location != null) {
+      title += " - ${widget.location!.name}";
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(L10().stocktake),
+        title: Text(title),
         actions: [
           if (_entries.isNotEmpty)
             TextButton(
@@ -169,9 +207,11 @@ class _StocktakeState extends State<StocktakeWidget> {
             ),
         ],
       ),
-      body: _entries.isEmpty
-          ? Center(
-              child: Column(
+      body: _loading
+          ? Center(child: CircularProgressIndicator())
+          : _entries.isEmpty
+              ? Center(
+                  child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(TablerIcons.clipboard_check, size: 64, color: Colors.grey),

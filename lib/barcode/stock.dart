@@ -26,6 +26,9 @@ import "package:inventree/widget/snacks.dart";
 class StocktakeScanItemHandler extends BarcodeHandler {
   StocktakeScanItemHandler(this.onItemScanned);
 
+  @override
+  bool get searchByBatchCode => true;
+
   final Function(InvenTreeStockItem) onItemScanned;
 
   @override
@@ -105,6 +108,9 @@ class BarcodeScanStockLocationHandler extends BarcodeHandler {
  * - Runs a "callback" function if a valid StockItem is found
  */
 class BarcodeScanStockItemHandler extends BarcodeHandler {
+  @override
+  bool get searchByBatchCode => true;
+
   @override
   String getOverlayText(BuildContext context) => L10().barcodeScanItem;
 

@@ -477,6 +477,12 @@
   "expiryStale": "Stale",
   "@expiryStale": {},
 
+  "export": "Export",
+  "@export": {},
+
+  "exportExcel": "Export to Excel",
+  "@exportExcel": {},
+
   "extraLineItem": "Extra Line Item",
   "@extraLineItem": {},
 

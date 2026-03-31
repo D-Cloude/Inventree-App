@@ -180,6 +180,29 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
       );
     }
 
+    // Export to Excel
+    actions.add(
+      SpeedDialChild(
+        child: Icon(TablerIcons.file_spreadsheet),
+        label: L10().exportExcel,
+        onTap: () async {
+          String url = "/api/stock/";
+          Map<String, String> filters = {
+            "location": location?.pk.toString() ?? "null",
+            "export": "xlsx",
+          };
+
+          // Append filters to URL
+          url += "?";
+          filters.forEach((key, value) {
+            url += "${key}=${value}&";
+          });
+
+          await InvenTreeAPI().downloadFile(url);
+        },
+      ),
+    );
+
     if (widget.location != null &&
         allowLabelPrinting &&
         api.supportsModernLabelPrinting) {
@@ -203,7 +226,9 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => StocktakeWidget()),
+              MaterialPageRoute(
+                builder: (context) => StocktakeWidget(location: widget.location),
+              ),
             );
           },
         ),

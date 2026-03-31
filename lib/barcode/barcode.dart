@@ -116,16 +116,53 @@ Future<Object?> scanBarcode(
  */
 class BarcodeScanHandler extends BarcodeHandler {
   @override
+  bool get searchByBatchCode => true;
+
+  @override
   String getOverlayText(BuildContext context) => L10().barcodeScanGeneral;
 
   @override
   Future<void> onBarcodeUnknown(Map<String, dynamic> data) async {
     barcodeFailureTone();
 
+    String barcode = (data["barcode_data"] ?? "") as String;
+
     showSnackIcon(
       L10().barcodeNoMatch,
       icon: TablerIcons.exclamation_circle,
       success: false,
+      onAction: barcode.isNotEmpty
+          ? () {
+              // Offer to create a new stock item with this batch code
+              _createItemFromBarcode(barcode);
+            }
+          : null,
+      actionText: barcode.isNotEmpty ? L10().create : null,
+    );
+  }
+
+  Future<void> _createItemFromBarcode(String barcode) async {
+    if (!hasContext()) return;
+
+    // We need to select a part first, or just launch a generic creation form
+    // Actually, InvenTreeStockItem().createForm requires a part.
+
+    // For now, let's just show a message or a simple dialog to select a part
+    // But to keep it simple and fulfill "use other data to create it",
+    // let's try to launch a form where 'batch' is pre-filled.
+
+    InvenTreeStockItem().createForm(
+      OneContext().context!,
+      L10().stockItemCreate,
+      data: {"batch": barcode},
+      onSuccess: (data) {
+        if (data is Map<String, dynamic>) {
+          int pk = (data["pk"] ?? -1) as int;
+          if (pk > 0) {
+            handleStockItem(pk);
+          }
+        }
+      },
     );
   }
 
