@@ -137,7 +137,7 @@ class BarcodeScanHandler extends BarcodeHandler {
               _createItemFromBarcode(barcode);
             }
           : null,
-      actionText: barcode.isNotEmpty ? L10().create : null,
+      actionText: barcode.isNotEmpty ? L10().stockItemCreate : null,
     );
   }
 

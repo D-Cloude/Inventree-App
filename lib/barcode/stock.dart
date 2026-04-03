@@ -46,7 +46,8 @@ class StocktakeScanItemHandler extends BarcodeHandler {
         if (item != null) {
           barcodeSuccessTone();
           onItemScanned(item);
-          showSnackIcon(item.partName, success: true);
+          // _addItem will show the snack with 재고 확인 완료 for existing entries;
+          // show a generic success tone for newly added ones.
           // Return without popping — keep scanner open
           return;
         }

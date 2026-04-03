@@ -1,5 +1,10 @@
+import "dart:convert";
+import "dart:io";
+
 import "package:flutter/material.dart";
 import "package:flutter_tabler_icons/flutter_tabler_icons.dart";
+import "package:open_filex/open_filex.dart";
+import "package:path_provider/path_provider.dart";
 
 import "package:inventree/api.dart";
 import "package:inventree/app_colors.dart";
@@ -17,10 +22,12 @@ class _StocktakeEntry {
   _StocktakeEntry({
     required this.item,
     required this.countedQuantity,
+    this.isScanned = false,
   });
 
   final InvenTreeStockItem item;
   double countedQuantity;
+  bool isScanned; // true if confirmed by barcode scan
 }
 
 /*
@@ -28,6 +35,7 @@ class _StocktakeEntry {
  *
  * Allows the user to scan multiple stock items and set their counted quantities,
  * then submit all counts at once to the server via stock/count/.
+ * On submission, results are automatically exported as a CSV file.
  */
 class StocktakeWidget extends StatefulWidget {
   const StocktakeWidget({this.location, Key? key}) : super(key: key);
@@ -73,22 +81,27 @@ class _StocktakeState extends State<StocktakeWidget> {
     }
   }
 
-  // Add or update a stock item in the list
+  // Add or update a stock item in the list, marking it as scanned
   void _addItem(InvenTreeStockItem item) {
     setState(() {
-      // If already in list, just highlight it
       for (var entry in _entries) {
         if (entry.item.pk == item.pk) {
+          entry.isScanned = true;
           showSnackIcon(
-            "${item.partName} (${item.displayQuantity})",
+            "${item.partName} — 재고 확인 완료",
             success: true,
           );
           return;
         }
       }
       _entries.add(
-        _StocktakeEntry(item: item, countedQuantity: item.quantity),
+        _StocktakeEntry(
+          item: item,
+          countedQuantity: item.quantity,
+          isScanned: true,
+        ),
       );
+      showSnackIcon("${item.partName} — 재고 확인 완료", success: true);
     });
   }
 
@@ -103,6 +116,45 @@ class _StocktakeState extends State<StocktakeWidget> {
       context,
       handler: StocktakeScanItemHandler(_addItem),
     );
+  }
+
+  /*
+   * Export current stocktake results to a CSV file and open it.
+   * The CSV uses UTF-8 BOM so Excel opens it with correct encoding.
+   */
+  Future<void> _exportResults() async {
+    final StringBuffer csv = StringBuffer();
+
+    // UTF-8 BOM for Excel Korean compatibility
+    csv.write("\uFEFF");
+    csv.writeln("부품명,배치코드,위치,확인수량,확인여부");
+
+    for (var entry in _entries) {
+      String cell(String s) => '"${s.replaceAll('"', '""')}"';
+      final verified = entry.isScanned ? "확인완료" : "미확인";
+      csv.writeln(
+        "${cell(entry.item.partName)},"
+        "${cell(entry.item.batch)},"
+        "${cell(entry.item.locationPathString)},"
+        "${entry.countedQuantity},"
+        "$verified",
+      );
+    }
+
+    final Directory dir = await getTemporaryDirectory();
+    final String ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(":", "-")
+        .split(".")
+        .first;
+    final String path = "${dir.path}/stocktake_$ts.csv";
+
+    final File file = File(path);
+    await file.writeAsString(csv.toString(), encoding: utf8);
+
+    await OpenFilex.open(path);
+
+    showSnackIcon("결과 파일이 저장되었습니다", success: true);
   }
 
   Future<void> _submitStocktake() async {
@@ -133,6 +185,8 @@ class _StocktakeState extends State<StocktakeWidget> {
     if (response.isValid() &&
         (response.statusCode == 200 || response.statusCode == 201)) {
       showSnackIcon(L10().stocktakeSuccess, success: true);
+      // Export results before clearing the list
+      await _exportResults();
       setState(() => _entries.clear());
     } else {
       showSnackIcon(L10().requestFailed, success: false);
@@ -143,7 +197,30 @@ class _StocktakeState extends State<StocktakeWidget> {
     return Card(
       key: ValueKey(entry.item.pk),
       child: ListTile(
-        leading: InvenTreeAPI().getThumbnail(entry.item.partImage),
+        leading: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            InvenTreeAPI().getThumbnail(entry.item.partImage) ??
+                const SizedBox(width: 40, height: 40),
+            if (entry.isScanned)
+              Positioned(
+                right: -4,
+                bottom: -4,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: const Icon(
+                    TablerIcons.check,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
         title: Text(entry.item.partName),
         subtitle: Text(
           entry.item.batch.isNotEmpty
@@ -154,6 +231,24 @@ class _StocktakeState extends State<StocktakeWidget> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (entry.isScanned)
+              Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(TablerIcons.circle_check, color: Colors.green, size: 18),
+                    Text(
+                      "확인완료",
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             SizedBox(
               width: 80,
               child: TextFormField(
@@ -193,10 +288,25 @@ class _StocktakeState extends State<StocktakeWidget> {
       title += " - ${widget.location!.name}";
     }
 
+    final int scannedCount = _entries.where((e) => e.isScanned).length;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         actions: [
+          if (_entries.isNotEmpty)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  "$scannedCount/${_entries.length}",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
           if (_entries.isNotEmpty)
             TextButton(
               onPressed: _submitting ? null : _submitStocktake,

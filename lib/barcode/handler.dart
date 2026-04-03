@@ -130,7 +130,7 @@ class BarcodeHandler {
       await onBarcodeUnknown({"barcode_data": barcode});
 
       showSnackIcon(L10().serverError, success: false);
-    ...
+
       // We want to know about this one!
       await sentryReportMessage(
         "BarcodeHandler.processBarcode returned unexpected value",

@@ -8,6 +8,7 @@ import "package:inventree/barcode/purchase_order.dart";
 import "package:inventree/barcode/stock.dart";
 import "package:inventree/l10.dart";
 
+import "package:inventree/api.dart";
 import "package:inventree/inventree/stock.dart";
 import "package:inventree/preferences.dart";
 import "package:inventree/widget/link_icon.dart";
