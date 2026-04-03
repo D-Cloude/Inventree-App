@@ -1834,5 +1834,38 @@
   "@stocktakeSuccess": {},
 
   "stocktakeSubmit": "Submit Stocktake",
-  "@stocktakeSubmit": {}
+  "@stocktakeSubmit": {},
+
+  "stocktakeItemVerified": "Stock item confirmed",
+  "@stocktakeItemVerified": {},
+
+  "stocktakeItemNotFound": "Item not in this location",
+  "@stocktakeItemNotFound": {},
+
+  "stocktakeExported": "Results exported to file",
+  "@stocktakeExported": {},
+
+  "stocktakeVerified": "Verified",
+  "@stocktakeVerified": {},
+
+  "stocktakeUnverified": "Unverified",
+  "@stocktakeUnverified": {},
+
+  "stocktakeVerificationMode": "Verification Mode",
+  "@stocktakeVerificationMode": {},
+
+  "stocktakeCsvPartName": "Part Name",
+  "@stocktakeCsvPartName": {},
+
+  "stocktakeCsvBatch": "Batch Code",
+  "@stocktakeCsvBatch": {},
+
+  "stocktakeCsvLocation": "Location",
+  "@stocktakeCsvLocation": {},
+
+  "stocktakeCsvQuantity": "Counted Qty",
+  "@stocktakeCsvQuantity": {},
+
+  "stocktakeCsvStatus": "Verified",
+  "@stocktakeCsvStatus": {}
 }

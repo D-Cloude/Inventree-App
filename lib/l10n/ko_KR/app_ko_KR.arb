@@ -159,5 +159,20 @@
 "version": "버전",
 "website": "웹사이트",
 "yes": "예",
-"stocktake": "재고조사"
+"stocktake": "재고조사",
+"stocktakeScanItem": "재고 항목 스캔",
+"stocktakeNoItems": "항목이 없습니다",
+"stocktakeSuccess": "재물조사 완료",
+"stocktakeSubmit": "재물조사 제출",
+"stocktakeItemVerified": "재고 확인 완료",
+"stocktakeItemNotFound": "이 위치에 없는 항목",
+"stocktakeExported": "결과 파일이 저장되었습니다",
+"stocktakeVerified": "확인완료",
+"stocktakeUnverified": "미확인",
+"stocktakeVerificationMode": "확인 모드",
+"stocktakeCsvPartName": "부품명",
+"stocktakeCsvBatch": "배치코드",
+"stocktakeCsvLocation": "위치",
+"stocktakeCsvQuantity": "확인수량",
+"stocktakeCsvStatus": "확인여부"
 }

@@ -10,6 +10,7 @@ import "package:inventree/api.dart";
 import "package:inventree/app_colors.dart";
 import "package:inventree/barcode/barcode.dart";
 import "package:inventree/barcode/stock.dart";
+import "package:inventree/barcode/tones.dart";
 import "package:inventree/helpers.dart";
 import "package:inventree/inventree/stock.dart";
 import "package:inventree/l10.dart";
@@ -33,8 +34,13 @@ class _StocktakeEntry {
 /*
  * Widget for performing a batch stocktake (재물조사) on a stock location.
  *
- * Allows the user to scan multiple stock items and set their counted quantities,
- * then submit all counts at once to the server via stock/count/.
+ * When a location is provided, all items in that location are pre-loaded
+ * and the widget enters "verification mode": scanning a barcode marks the
+ * matching item as confirmed. Items not in the list show an error.
+ *
+ * Without a location, the widget runs in "free-form" mode where scanning
+ * any stock item adds it to the list.
+ *
  * On submission, results are automatically exported as a CSV file.
  */
 class StocktakeWidget extends StatefulWidget {
@@ -50,6 +56,9 @@ class _StocktakeState extends State<StocktakeWidget> {
   final List<_StocktakeEntry> _entries = [];
   bool _submitting = false;
   bool _loading = false;
+
+  // True when location is pre-loaded: scanning only verifies existing items
+  bool get _verificationMode => widget.location != null;
 
   @override
   void initState() {
@@ -81,27 +90,43 @@ class _StocktakeState extends State<StocktakeWidget> {
     }
   }
 
-  // Add or update a stock item in the list, marking it as scanned
-  void _addItem(InvenTreeStockItem item) {
+  /*
+   * Called when a barcode scan completes.
+   *
+   * In verification mode: only marks existing items as confirmed.
+   * In free-form mode: also adds items not currently in the list.
+   */
+  void _onItemScanned(InvenTreeStockItem item) {
     setState(() {
       for (var entry in _entries) {
         if (entry.item.pk == item.pk) {
           entry.isScanned = true;
           showSnackIcon(
-            "${item.partName} — 재고 확인 완료",
+            "${item.partName} — ${L10().stocktakeItemVerified}",
             success: true,
           );
           return;
         }
       }
-      _entries.add(
-        _StocktakeEntry(
-          item: item,
-          countedQuantity: item.quantity,
-          isScanned: true,
-        ),
-      );
-      showSnackIcon("${item.partName} — 재고 확인 완료", success: true);
+
+      if (_verificationMode) {
+        // Item not in the pre-loaded list → error
+        barcodeFailureTone();
+        showSnackIcon(L10().stocktakeItemNotFound, success: false);
+      } else {
+        // Free-form mode: add the new item
+        _entries.add(
+          _StocktakeEntry(
+            item: item,
+            countedQuantity: item.quantity,
+            isScanned: true,
+          ),
+        );
+        showSnackIcon(
+          "${item.partName} — ${L10().stocktakeItemVerified}",
+          success: true,
+        );
+      }
     });
   }
 
@@ -114,7 +139,7 @@ class _StocktakeState extends State<StocktakeWidget> {
   Future<void> _scanItem() async {
     await scanBarcode(
       context,
-      handler: StocktakeScanItemHandler(_addItem),
+      handler: StocktakeScanItemHandler(_onItemScanned),
     );
   }
 
@@ -127,11 +152,18 @@ class _StocktakeState extends State<StocktakeWidget> {
 
     // UTF-8 BOM for Excel Korean compatibility
     csv.write("\uFEFF");
-    csv.writeln("부품명,배치코드,위치,확인수량,확인여부");
+    csv.writeln(
+      "${L10().stocktakeCsvPartName},"
+      "${L10().stocktakeCsvBatch},"
+      "${L10().stocktakeCsvLocation},"
+      "${L10().stocktakeCsvQuantity},"
+      "${L10().stocktakeCsvStatus}",
+    );
 
     for (var entry in _entries) {
       String cell(String s) => '"${s.replaceAll('"', '""')}"';
-      final verified = entry.isScanned ? "확인완료" : "미확인";
+      final verified =
+          entry.isScanned ? L10().stocktakeVerified : L10().stocktakeUnverified;
       csv.writeln(
         "${cell(entry.item.partName)},"
         "${cell(entry.item.batch)},"
@@ -154,7 +186,7 @@ class _StocktakeState extends State<StocktakeWidget> {
 
     await OpenFilex.open(path);
 
-    showSnackIcon("결과 파일이 저장되었습니다", success: true);
+    showSnackIcon(L10().stocktakeExported, success: true);
   }
 
   Future<void> _submitStocktake() async {
@@ -185,7 +217,6 @@ class _StocktakeState extends State<StocktakeWidget> {
     if (response.isValid() &&
         (response.statusCode == 200 || response.statusCode == 201)) {
       showSnackIcon(L10().stocktakeSuccess, success: true);
-      // Export results before clearing the list
       await _exportResults();
       setState(() => _entries.clear());
     } else {
@@ -226,21 +257,25 @@ class _StocktakeState extends State<StocktakeWidget> {
           entry.item.batch.isNotEmpty
               ? "${L10().stockLocation}: ${entry.item.locationPathString}  |  ${L10().batchCode}: ${entry.item.batch}"
               : "${L10().stockLocation}: ${entry.item.locationPathString}",
-          style: TextStyle(fontSize: 11),
+          style: const TextStyle(fontSize: 11),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (entry.isScanned)
               Padding(
-                padding: EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.only(right: 6),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(TablerIcons.circle_check, color: Colors.green, size: 18),
+                    const Icon(
+                      TablerIcons.circle_check,
+                      color: Colors.green,
+                      size: 18,
+                    ),
                     Text(
-                      "확인완료",
-                      style: TextStyle(
+                      L10().stocktakeVerified,
+                      style: const TextStyle(
                         fontSize: 9,
                         color: Colors.green,
                         fontWeight: FontWeight.bold,
@@ -253,9 +288,11 @@ class _StocktakeState extends State<StocktakeWidget> {
               width: 80,
               child: TextFormField(
                 initialValue: simpleNumberString(entry.countedQuantity),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 textAlign: TextAlign.center,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 8,
@@ -285,78 +322,130 @@ class _StocktakeState extends State<StocktakeWidget> {
   Widget build(BuildContext context) {
     String title = L10().stocktake;
     if (widget.location != null) {
-      title += " - ${widget.location!.name}";
+      title += " — ${widget.location!.name}";
     }
 
     final int scannedCount = _entries.where((e) => e.isScanned).length;
+    final int totalCount = _entries.length;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         actions: [
-          if (_entries.isNotEmpty)
+          // Progress counter: scanned / total
+          if (totalCount > 0)
             Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  "$scannedCount/${_entries.length}",
-                  style: TextStyle(
+                  "$scannedCount/$totalCount",
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
-          if (_entries.isNotEmpty)
+          if (totalCount > 0)
             TextButton(
               onPressed: _submitting ? null : _submitStocktake,
               child: Text(
                 L10().stocktakeSubmit,
-                style: TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.white),
               ),
             ),
         ],
       ),
-      body: _loading
-          ? Center(child: CircularProgressIndicator())
-          : _entries.isEmpty
-              ? Center(
-                  child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
+        children: [
+          // Verification mode banner
+          if (_verificationMode)
+            Container(
+              width: double.infinity,
+              color: Colors.blue.shade50,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
                 children: [
-                  Icon(TablerIcons.clipboard_check, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
+                  const Icon(
+                    TablerIcons.scan,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    L10().stocktakeNoItems,
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    L10().stocktakeVerificationMode,
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    icon: Icon(TablerIcons.qrcode),
-                    label: Text(L10().stocktakeScanItem),
-                    onPressed: _scanItem,
-                  ),
+                  if (totalCount > 0) ...[
+                    const Spacer(),
+                    // Progress bar chip
+                    Text(
+                      "$scannedCount / $totalCount ${L10().stocktakeVerified}",
+                      style: TextStyle(
+                        color: scannedCount == totalCount
+                            ? Colors.green
+                            : Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _entries.length,
-                    itemBuilder: (ctx, i) =>
-                        _buildEntryRow(_entries[i], i),
-                  ),
-                ),
-                if (_submitting)
-                  Padding(
-                    padding: EdgeInsets.all(8),
-                    child: LinearProgressIndicator(),
-                  ),
-              ],
             ),
+
+          // Main content
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _entries.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              TablerIcons.clipboard_check,
+                              size: 64,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              L10().stocktakeNoItems,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              icon: const Icon(TablerIcons.qrcode),
+                              label: Text(L10().stocktakeScanItem),
+                              onPressed: _scanItem,
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _entries.length,
+                        itemBuilder: (ctx, i) =>
+                            _buildEntryRow(_entries[i], i),
+                      ),
+          ),
+
+          if (_submitting)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: LinearProgressIndicator(),
+            ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        icon: Icon(TablerIcons.qrcode),
+        icon: const Icon(TablerIcons.qrcode),
         label: Text(L10().stocktakeScanItem),
         onPressed: _scanItem,
       ),
