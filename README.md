@@ -4,8 +4,20 @@
 ![Android](https://github.com/inventree/inventree-app/actions/workflows/android.yaml/badge.svg)
 ![iOS](https://github.com/inventree/inventree-app/actions/workflows/ios.yaml/badge.svg)
 
-InvenTree 재고 관리 시스템의 모바일 / 태블릿 동반 앱입니다.  
+InvenTree-App을 포크하여 한글화 및 기능 개선을 진행한 재고 관리 시스템의 모바일 / 태블릿 동반 앱입니다.  
 [Flutter](https://flutter.dev/) 환경으로 작성되어 Android 및 iOS 기기를 기본 지원합니다.
+
+---
+
+## 🌟 이 포크(Fork) 버전에 추가된 핵심 기능
+
+이 프로젝트는 원본 InvenTree-App 구조를 바탕으로, 한국 사용자 및 특정 재물조사 시나리오에 맞춘 주요 기능들이 추가 및 개선되었습니다.
+
+1. **완벽한 한국어 번역 추가**
+   - 앱 전반의 UI 요소 및 알림 메시지 등에 대한 한국어 번역이 추가되어 국내 사용에 최적화되었습니다.
+2. **공간(위치) 기반 재물조사(Stocktake) 기능 강화**
+   - **자동 재고 로드 기능:** `LocationDisplayWidget`에서 관리 중인 특정 위치에 진입하여 재물조사 시작 시, 해당 위치(Location)에 등록된 **모든 재고 항목을 자동으로 로드**하도록 개선되었습니다.
+   - 공간별 전체 재고 현황을 바로 확인하며 실물 확인 작업(스캔 및 대조)을 진행할 수 있어 효율적인 재물조사가 가능해졌습니다.
 
 ---
 
