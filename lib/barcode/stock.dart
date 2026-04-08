@@ -225,21 +225,33 @@ class StockLocationScanInItemsHandler extends BarcodeScanStockItemHandler {
       INV_STOCK_CONFIRM_SCAN,
       false,
     );
+    final bool autoTransfer = await InvenTreeSettingsManager().getBool(
+      INV_STOCK_AUTO_TRANSFER,
+      false,
+    );
 
     bool result = false;
 
     if (item != null) {
       // Item is already *in* the specified location
       if (item.locationId == location.pk) {
-        barcodeFailureTone();
+        barcodeSuccessTone();
         showSnackIcon(L10().itemInLocation, success: true);
         return false;
       } else {
+        String notes = "";
+        if (autoTransfer) {
+          notes = L10().autoTransferNote;
+        }
+
         if (confirm) {
           Map<String, dynamic> fields = item.transferFields();
 
           // Override location with provided location value
           fields["location"]?["value"] = location.pk;
+          if (autoTransfer) {
+            fields["notes"] = notes;
+          }
 
           launchApiForm(
             OneContext().context!,
@@ -255,7 +267,7 @@ class StockLocationScanInItemsHandler extends BarcodeScanStockItemHandler {
 
           return true;
         } else {
-          result = await item.transferStock(location.pk);
+          result = await item.transferStock(location.pk, notes: notes);
 
           showSnackIcon(
             result

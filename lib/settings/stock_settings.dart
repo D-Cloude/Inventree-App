@@ -15,6 +15,7 @@ class _InvenTreeStockSettingsState extends State<InvenTreeStockSettingsWidget> {
   bool stockShowHistory = false;
   bool stockShowTests = false;
   bool stockConfirmScan = false;
+  bool stockAutoTransfer = false;
 
   @override
   void initState() {
@@ -33,6 +34,10 @@ class _InvenTreeStockSettingsState extends State<InvenTreeStockSettingsWidget> {
     );
     stockConfirmScan = await InvenTreeSettingsManager().getBool(
       INV_STOCK_CONFIRM_SCAN,
+      false,
+    );
+    stockAutoTransfer = await InvenTreeSettingsManager().getBool(
+      INV_STOCK_AUTO_TRANSFER,
       false,
     );
 
@@ -98,6 +103,23 @@ class _InvenTreeStockSettingsState extends State<InvenTreeStockSettingsWidget> {
                   );
                   setState(() {
                     stockConfirmScan = value;
+                  });
+                },
+              ),
+            ),
+            ListTile(
+              title: Text(L10().autoTransfer),
+              subtitle: Text(L10().autoTransferDetail),
+              leading: Icon(TablerIcons.transfer),
+              trailing: Switch(
+                value: stockAutoTransfer,
+                onChanged: (bool value) {
+                  InvenTreeSettingsManager().setValue(
+                    INV_STOCK_AUTO_TRANSFER,
+                    value,
+                  );
+                  setState(() {
+                    stockAutoTransfer = value;
                   });
                 },
               ),

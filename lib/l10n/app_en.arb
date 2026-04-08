@@ -1824,6 +1824,18 @@
   "stocktake": "Stocktake",
   "@stocktake": {},
 
+  "stocktakeDescription": "Count and verify stock items in a location",
+  "@stocktakeDescription": {},
+
+  "selectLocation": "Select Location",
+  "@selectLocation": {},
+
+  "noLocationsFound": "No locations found",
+  "@noLocationsFound": {},
+
+  "features": "Features",
+  "@features": {},
+
   "stocktakeScanItem": "Scan item for stocktake",
   "@stocktakeScanItem": {},
 
@@ -1867,5 +1879,89 @@
   "@stocktakeCsvQuantity": {},
 
   "stocktakeCsvStatus": "Verified",
-  "@stocktakeCsvStatus": {}
+  "@stocktakeCsvStatus": {},
+
+  "autoTransfer": "Auto Transfer",
+  "@autoTransfer": {},
+
+  "autoTransferDetail": "Automatically transfer items to the target location when scanned, even if they are in a different location",
+  "@autoTransferDetail": {},
+
+  "autoTransferNote": "Item transferred by system",
+  "@autoTransferNote": {},
+
+  "locationTransfer": "Location Transfer",
+  "@locationTransfer": {},
+
+  "locationTransferDescription": "Transfer stock items from one location to another",
+  "@locationTransferDescription": {},
+
+  "locationTransferNote": "Transferred via location transfer",
+  "@locationTransferNote": {},
+
+  "sourceLocation": "Source Location",
+  "@sourceLocation": {},
+
+  "targetLocation": "Target Location",
+  "@targetLocation": {},
+
+  "targetLocationValue": "To Location:",
+  "@targetLocationValue": {},
+
+  "selectSourceLocation": "Select Source Location",
+  "@selectSourceLocation": {},
+
+  "selectTargetLocation": "Select Target Location",
+  "@selectTargetLocation": {},
+
+  "transferMode": "Transfer Mode",
+  "@transferMode": {},
+
+  "scanMode": "Scan Mode",
+  "@scanMode": {},
+
+  "listMode": "List Mode",
+  "@listMode": {},
+
+  "startTransfer": "Start Transfer",
+  "@startTransfer": {},
+
+  "scanItemToTransfer": "Scan item to transfer",
+  "@scanItemToTransfer": {},
+
+  "selectItemsToTransfer": "Select items to transfer",
+  "@selectItemsToTransfer": {},
+
+  "transferSelected": "Transfer Selected",
+  "@transferSelected": {},
+
+  "itemTransferred": "Item transferred",
+  "@itemTransferred": {},
+
+  "itemsTransferred": "items transferred",
+  "@itemsTransferred": {},
+
+  "optional": "(Optional)",
+  "@optional": {}
 }
+
+  "itemNotFound": "Item not found",
+  "@itemNotFound": {},
+
+  "transferFailed": "Transfer failed",
+  "@transferFailed": {},
+
+  "confirmTransferItems": "Confirm Transfer",
+  "@confirmTransferItems": {},
+
+  "transferItemsMessage": "Transfer {count} items to {location}?",
+  "@transferItemsMessage": {},
+
+  "confirm": "Confirm",
+  "@confirm": {},
+
+  "items": "Items",
+  "@items": {},
+
+  "itemInLocation": "Item already in location",
+  "@itemInLocation": {}

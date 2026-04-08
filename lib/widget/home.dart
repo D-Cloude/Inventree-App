@@ -26,6 +26,7 @@ import "package:inventree/widget/refreshable_state.dart";
 import "package:inventree/widget/snacks.dart";
 import "package:inventree/widget/spinner.dart";
 import "package:inventree/widget/company/company_list.dart";
+import "package:inventree/widget/features.dart";
 
 class InvenTreeHomePage extends StatefulWidget {
   const InvenTreeHomePage({Key? key}) : super(key: key);
@@ -157,6 +158,15 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage>
         builder: (context) =>
             CompanyListWidget(L10().customers, {"is_customer": "true"}),
       ),
+    );
+  }
+
+  void _showFeatures(BuildContext context) {
+    if (!InvenTreeAPI().checkConnection()) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => FeaturesWidget()),
     );
   }
 
@@ -402,6 +412,18 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage>
         ),
       );
     }
+
+    // Features
+    tiles.add(
+      _listTile(
+        context,
+        L10().features,
+        TablerIcons.tools,
+        callback: () {
+          _showFeatures(context);
+        },
+      ),
+    );
 
     return tiles;
   }

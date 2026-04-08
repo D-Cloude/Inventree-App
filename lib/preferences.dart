@@ -40,6 +40,7 @@ const String INV_PART_SHOW_REQUIREMENTS = "partShowRequirements";
 const String INV_STOCK_SHOW_HISTORY = "stockShowHistory";
 const String INV_STOCK_SHOW_TESTS = "stockShowTests";
 const String INV_STOCK_CONFIRM_SCAN = "stockConfirmScan";
+const String INV_STOCK_AUTO_TRANSFER = "stockAutoTransfer";
 
 // Purchase order settings
 const String INV_PO_ENABLE = "poEnable";
