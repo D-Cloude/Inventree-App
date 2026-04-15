@@ -549,7 +549,7 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                       ),
                       SizedBox(height: 8),
                       if (_isLoading)
-                        Center(child: Spinner())
+                        Center(child: Spinner(icon: null,))
                       else
                         ListView.builder(
                           shrinkWrap: true,
