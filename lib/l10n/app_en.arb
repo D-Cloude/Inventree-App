@@ -1942,8 +1942,7 @@
   "@itemsTransferred": {},
 
   "optional": "(Optional)",
-  "@optional": {}
-}
+  "@optional": {},
 
   "itemNotFound": "Item not found",
   "@itemNotFound": {},
@@ -1965,3 +1964,4 @@
 
   "itemInLocation": "Item already in location",
   "@itemInLocation": {}
+}

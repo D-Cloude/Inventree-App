@@ -9,6 +9,9 @@ import "package:inventree/widget/spinner.dart";
 import "package:inventree/barcode/tones.dart";
 import "package:inventree/barcode/barcode.dart";
 import "package:inventree/barcode/handler.dart";
+import "package:inventree/preferences.dart";
+import "package:one_context/one_context.dart";
+import "package:inventree/api_form.dart";
 
 /*
  * Location Transfer Widget - Transfer stock items between locations
@@ -625,10 +628,46 @@ class _LocationTransferBarcodeHandler extends BarcodeHandler {
       return;
     }
 
+    // Check for confirm setting
+    final bool confirm = await InvenTreeSettingsManager().getBool(
+      INV_STOCK_CONFIRM_SCAN,
+      false,
+    );
+
+    // Check for auto-transfer setting
+    final bool autoTransfer = await InvenTreeSettingsManager().getBool(
+      INV_STOCK_AUTO_TRANSFER,
+      false,
+    );
+
+    // Determine the notes field value
+    String notes = autoTransfer ? L10().autoTransferNote : L10().locationTransferNote;
+
+    // If confirm is enabled, launch an ApiForm to confirm the transfer
+    if (confirm) {
+      // Get the transfer form fields
+      final fields = item.transferFields();
+      fields["location"]?["value"] = targetLocation.pk;
+      fields["notes"] = notes;
+
+      launchApiForm(
+        OneContext().context!,
+        L10().transferStock,
+        InvenTreeStockItem.transferStockUrl(),
+        fields,
+        method: "POST",
+        icon: TablerIcons.transfer,
+        onSuccess: (data) {
+          showSnackIcon(L10().stockItemUpdated, success: true);
+        },
+      );
+      return;
+    }
+
     // Transfer the item
     final result = await item.transferStock(
       targetLocation.pk,
-      notes: L10().locationTransferNote,
+      notes: notes,
     );
 
     if (result) {

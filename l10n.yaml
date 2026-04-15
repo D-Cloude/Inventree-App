@@ -1,8 +1,7 @@
-arb-dir: lib/l10n
+arb-dir: lib/l10n/collected
 template-arb-file: app_en.arb
 output-dir: lib/l10n/collected
 output-localization-file: app_localizations.dart
 output-class: I18N
-synthetic-package: false
 untranslated-messages-file: lib/l10n/untranslated-messages.json
 nullable-getter: false

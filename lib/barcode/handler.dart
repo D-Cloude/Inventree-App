@@ -40,8 +40,16 @@ class BarcodeHandler {
 
     barcodeFailureTone();
 
+    // Check if we have more detailed error information
+    String errorMessage = (data["error"] ?? L10().barcodeNoMatch) as String;
+
+    // Check for specific error types
+    if (data.containsKey("errorDetail")) {
+      errorMessage = "${data["error"]} (${data["errorDetail"]})";
+    }
+
     showSnackIcon(
-      (data["error"] ?? L10().barcodeNoMatch) as String,
+      errorMessage,
       success: false,
       icon: Icons.qr_code,
     );
