@@ -132,7 +132,8 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
 
       if (items is List) {
         setState(() {
-          _items = items.whereType<InvenTreeStockItem>().toList();
+          // Filter out items with null pk to prevent null safety issues
+          _items = items.whereType<InvenTreeStockItem>().where((item) => item.pk != null).toList();
         });
       }
     } finally {
@@ -259,9 +260,7 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
       builder: (ctx) => AlertDialog(
         title: Text(L10().confirmTransferItems),
         content: Text(
-            "${L10().transferItemsMessage}"
-                .replaceAll("{count}", _selectedItemIds.length.toString())
-                .replaceAll("{location}", _targetLocation!.name)),
+            L10().transferItemsMessage(_selectedItemIds.length, _targetLocation!.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -311,10 +310,10 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
       if (mounted) {
         if (failCount > 0) {
           showSnackIcon(
-              "$successCount ${L10().itemsTransferred}, $failCount ${L10().transferFailed}",
+              "${L10().itemsTransferred(successCount)}, $failCount ${L10().transferFailed}",
               success: false);
         } else {
-          showSnackIcon("$successCount ${L10().itemsTransferred}", success: true);
+          showSnackIcon(L10().itemsTransferred(successCount), success: true);
         }
       }
     } finally {
@@ -384,7 +383,7 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                 child: Column(
                   children: [
                     Text(
-                      "$L10().sourceLocation ${L10().optional}",
+                      "${L10().sourceLocation} ${L10().optional}",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -549,7 +548,7 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                       ),
                       SizedBox(height: 8),
                       if (_isLoading)
-                        Center(child: Spinner(icon: null,))
+                        Center(child: Spinner(icon: TablerIcons.hourglass,))
                       else
                         ListView.builder(
                           shrinkWrap: true,
