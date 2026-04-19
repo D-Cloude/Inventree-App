@@ -11,6 +11,7 @@ import "package:inventree/barcode/barcode.dart";
 import "package:inventree/barcode/handler.dart";
 import "package:inventree/barcode/tones.dart";
 
+import "package:inventree/inventree/sentry.dart";
 import "package:inventree/inventree/stock.dart";
 
 import "package:inventree/widget/dialogs.dart";
@@ -253,28 +254,36 @@ class StockLocationScanInItemsHandler extends BarcodeScanStockItemHandler {
             fields["notes"] = notes;
           }
 
-          launchApiForm(
-            OneContext().context!,
-            L10().transferStock,
-            InvenTreeStockItem.transferStockUrl(),
-            fields,
-            method: "POST",
-            icon: TablerIcons.transfer,
-            onSuccess: (data) async {
-              showSnackIcon(L10().stockItemUpdated, success: true);
-            },
-          );
+          final BuildContext? context = OneContext.instance.context;
+          if (context != null) {
+            launchApiForm(
+              context,
+              L10().transferStock,
+              InvenTreeStockItem.transferStockUrl(),
+              fields,
+              method: "POST",
+              icon: TablerIcons.transfer,
+              onSuccess: (data) async {
+                showSnackIcon(L10().stockItemUpdated, success: true);
+              },
+            );
+          }
 
           return true;
         } else {
-          result = await item.transferStock(location.pk, notes: notes);
+          try {
+            result = await item.transferStock(location.pk, notes: notes);
 
-          showSnackIcon(
-            result
-                ? L10().barcodeScanIntoLocationSuccess
-                : L10().barcodeScanIntoLocationFailure,
-            success: result,
-          );
+            showSnackIcon(
+              result
+                  ? L10().barcodeScanIntoLocationSuccess
+                  : L10().barcodeScanIntoLocationFailure,
+              success: result,
+            );
+          } catch (error, stackTrace) {
+            sentryReportError("StockLocationScanInItemsHandler.onItemScanned", error, stackTrace);
+            showSnackIcon(L10().transferFailed, success: false);
+          }
         }
       }
     }

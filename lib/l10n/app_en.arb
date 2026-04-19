@@ -1938,8 +1938,14 @@
   "itemTransferred": "Item transferred",
   "@itemTransferred": {},
 
-  "itemsTransferred": "items transferred",
-  "@itemsTransferred": {},
+  "itemsTransferred": "{count} items transferred",
+  "@itemsTransferred": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
 
   "optional": "(Optional)",
   "@optional": {},

@@ -198,7 +198,7 @@
 "selectItemsToTransfer": "이동할 항목 선택",
 "transferSelected": "선택 항목 이동",
 "itemTransferred": "이동 완료",
-"itemsTransferred": "개 이동 완료",
+"itemsTransferred": "{count}개 이동 완료",
 "optional": "(선택)",
 "itemNotFound": "항목을 찾을 수 없음",
 "transferFailed": "이동 실패",

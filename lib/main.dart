@@ -21,70 +21,22 @@ import "package:inventree/widget/home.dart";
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Load essential settings
   final savedThemeMode = await AdaptiveTheme.getThemeMode();
 
-  await runZonedGuarded<Future<void>>(
-    () async {
-      PackageInfo info = await PackageInfo.fromPlatform();
-      String pkg = info.packageName;
-      String version = info.version;
-      String build = info.buildNumber;
-
-      String release = "${pkg}@${version}:${build}";
-
-      if (SENTRY_DSN_KEY.isNotEmpty) {
-        await Sentry.init((options) {
-          options.dsn = SENTRY_DSN_KEY;
-          options.release = release;
-          options.environment = isInDebugMode() ? "debug" : "release";
-          options.diagnosticLevel = SentryLevel.debug;
-          options.attachStacktrace = true;
-        });
-      }
-
-      // Pass any flutter errors off to the Sentry reporting context!
-      FlutterError.onError = (FlutterErrorDetails details) async {
-        // Ensure that the error gets reported to sentry!
-        await sentryReportError(
-          "FlutterError.onError",
-          details.exception,
-          details.stack,
-          context: {
-            "context": details.context.toString(),
-            "summary": details.summary.toString(),
-            "library": details.library ?? "null",
-          },
-        );
-      };
-
-      final int orientation =
-          await InvenTreeSettingsManager().getValue(
-                INV_SCREEN_ORIENTATION,
-                SCREEN_ORIENTATION_SYSTEM,
-              )
-              as int;
-
-      List<DeviceOrientation> orientations = [];
-
-      switch (orientation) {
-        case SCREEN_ORIENTATION_PORTRAIT:
-          orientations.add(DeviceOrientation.portraitUp);
-        case SCREEN_ORIENTATION_LANDSCAPE:
-          orientations.add(DeviceOrientation.landscapeLeft);
-        default:
-          orientations.add(DeviceOrientation.portraitUp);
-          orientations.add(DeviceOrientation.landscapeLeft);
-          orientations.add(DeviceOrientation.landscapeRight);
-      }
-
-      SystemChrome.setPreferredOrientations(orientations).then((_) {
-        runApp(InvenTreeApp(savedThemeMode));
-      });
-    },
-    (Object error, StackTrace stackTrace) async {
-      sentryReportError("main.runZonedGuarded", error, stackTrace);
-    },
-  );
+  if (SENTRY_DSN_KEY.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = SENTRY_DSN_KEY;
+        options.environment = isInDebugMode() ? "debug" : "release";
+        options.diagnosticLevel = SentryLevel.debug;
+        options.attachStacktrace = true;
+      },
+      appRunner: () => runApp(InvenTreeApp(savedThemeMode)),
+    );
+  } else {
+    runApp(InvenTreeApp(savedThemeMode));
+  }
 }
 
 class InvenTreeApp extends StatefulWidget {
@@ -113,22 +65,50 @@ class InvenTreeAppState extends State<StatefulWidget> {
   void initState() {
     super.initState();
 
-    // Run some async init tasks
-    runInitTasks();
+    // Defer initialization tasks until after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        runInitTasks();
+      }
+    });
   }
 
   // Run app init routines in the background
   Future<void> runInitTasks() async {
-    // Set the app locale (language)
+    // 1. Orientation Setup
+    final int orientation = await InvenTreeSettingsManager().getValue(
+      INV_SCREEN_ORIENTATION,
+      SCREEN_ORIENTATION_SYSTEM,
+    ) as int;
+
+    List<DeviceOrientation> orientations = [];
+    switch (orientation) {
+      case SCREEN_ORIENTATION_PORTRAIT:
+        orientations.add(DeviceOrientation.portraitUp);
+        break;
+      case SCREEN_ORIENTATION_LANDSCAPE:
+        orientations.add(DeviceOrientation.landscapeLeft);
+        break;
+      default:
+        orientations.add(DeviceOrientation.portraitUp);
+        orientations.add(DeviceOrientation.landscapeLeft);
+        orientations.add(DeviceOrientation.landscapeRight);
+        break;
+    }
+    await SystemChrome.setPreferredOrientations(orientations);
+
+    // 2. Set the app locale (language)
     Locale? locale = await InvenTreeSettingsManager().getSelectedLocale();
     setLocale(locale);
 
-    // Display release notes if this is a new version
-    final String version =
-        await InvenTreeSettingsManager().getValue("recentVersion", "")
-            as String;
-
+    // 3. Sentry Release Tagging
     final PackageInfo info = await PackageInfo.fromPlatform();
+    final String release = "${info.packageName}@${info.version}:${info.buildNumber}";
+    Sentry.configureScope((scope) => scope.setTag("release", release));
+
+    // 4. Display release notes if this is a new version
+    final String version =
+        await InvenTreeSettingsManager().getValue("recentVersion", "") as String;
 
     if (version != info.version) {
       // Save latest version to the settings database
@@ -137,18 +117,25 @@ class InvenTreeAppState extends State<StatefulWidget> {
       // Load release notes from external file
       String notes = await rootBundle.loadString("assets/release_notes.md");
 
-      // Show the release notes
-      OneContext().push(
-        MaterialPageRoute(builder: (context) => ReleaseNotesWidget(notes)),
-      );
+      // Wait for the first frame to be rendered before pushing a new route
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // Show the release notes
+          OneContext().push(
+            MaterialPageRoute(builder: (context) => ReleaseNotesWidget(notes)),
+          );
+        }
+      });
     }
   }
 
   // Update the app locale
   void setLocale(Locale? locale) {
-    setState(() {
-      _locale = locale;
-    });
+    if (mounted) {
+      setState(() {
+        _locale = locale;
+      });
+    }
   }
 
   Locale? get locale => _locale;
