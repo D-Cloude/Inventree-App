@@ -78,8 +78,14 @@ class _StocktakeState extends State<StocktakeWidget> {
         "in_stock": "true",
       });
 
+      if (!mounted) return;
+
+      // Process items in the next frame to avoid UI blocking
+      await Future.delayed(Duration(milliseconds: 10));
+
       if (mounted) {
         setState(() {
+          _entries.clear();
           for (var item in items) {
             if (item is InvenTreeStockItem && item.pk != null) {
               _entries.add(
@@ -282,89 +288,82 @@ class _StocktakeState extends State<StocktakeWidget> {
   Widget _buildEntryRow(_StocktakeEntry entry, int index) {
     return Card(
       key: ValueKey(entry.item.pk),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ListTile(
-        leading: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            InvenTreeAPI().getThumbnail(entry.item.partImage) ??
-                const SizedBox(width: 40, height: 40),
-            if (entry.isScanned)
-              Positioned(
-                right: -4,
-                bottom: -4,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(2),
-                  child: const Icon(
-                    TablerIcons.check,
-                    color: Colors.white,
-                    size: 12,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        leading: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              InvenTreeAPI().getThumbnail(entry.item.partImage) ??
+                  const Icon(TablerIcons.package, size: 40, color: Colors.grey),
+              if (entry.isScanned)
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(2),
+                    child: const Icon(
+                      TablerIcons.check,
+                      color: Colors.white,
+                      size: 10,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-        title: Text(entry.item.partName),
+        title: Text(
+          entry.item.partName,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
         subtitle: Text(
           entry.item.batch.isNotEmpty
-              ? "${L10().stockLocation}: ${entry.item.locationPathString}  |  ${L10().batchCode}: ${entry.item.batch}"
-              : "${L10().stockLocation}: ${entry.item.locationPathString}",
+              ? "${L10().batchCode}: ${entry.item.batch}\n${entry.item.locationPathString}"
+              : entry.item.locationPathString,
           style: const TextStyle(fontSize: 11),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (entry.isScanned)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      TablerIcons.circle_check,
-                      color: Colors.green,
-                      size: 18,
-                    ),
-                    Text(
-                      L10().stocktakeVerified,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             SizedBox(
-              width: 80,
+              width: 70,
               child: TextFormField(
                 initialValue: simpleNumberString(entry.countedQuantity),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14),
                 decoration: const InputDecoration(
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 8,
+                    horizontal: 4,
                     vertical: 8,
                   ),
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (val) {
                   final parsed = double.tryParse(val);
+                  // If input is not a positive number, default to 0 as per request
                   if (parsed != null && parsed >= 0) {
                     entry.countedQuantity = parsed;
+                  } else {
+                    entry.countedQuantity = 0;
                   }
                 },
               ),
             ),
             IconButton(
-              icon: Icon(TablerIcons.trash, color: COLOR_DANGER),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(TablerIcons.trash, color: COLOR_DANGER, size: 20),
               onPressed: () => _removeItem(index),
             ),
           ],
@@ -403,9 +402,9 @@ class _StocktakeState extends State<StocktakeWidget> {
             ),
           if (totalCount > 0)
             TextButton(
-              onPressed: _submitting ? null : _submitStocktake,
+              onPressed: _exportResults,
               child: Text(
-                L10().stocktakeSubmit,
+                L10().save,
                 style: const TextStyle(color: Colors.white),
               ),
             ),

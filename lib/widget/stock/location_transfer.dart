@@ -6,6 +6,7 @@ import "package:inventree/inventree/stock.dart";
 import "package:inventree/l10.dart";
 import "package:inventree/widget/snacks.dart";
 import "package:inventree/widget/spinner.dart";
+import "package:inventree/widget/progress.dart";
 import "package:inventree/barcode/tones.dart";
 import "package:inventree/barcode/barcode.dart";
 import "package:inventree/barcode/handler.dart";
@@ -61,53 +62,69 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
    * Show location selection dialog
    */
   Future<void> _selectLocation({bool isTarget = false}) async {
+    showLoadingOverlay();
     final locations = await InvenTreeStockLocation().list();
+    hideLoadingOverlay();
 
     if (locations.isEmpty) {
       showSnackIcon(L10().noLocationsFound, success: false);
       return;
     }
 
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isTarget ? L10().selectTargetLocation : L10().selectSourceLocation),
-        content: Container(
-          constraints: BoxConstraints(maxHeight: 400),
-          child: ListView.builder(
-            itemCount: locations.length,
-            itemBuilder: (ctx, i) {
-              final loc = locations[i];
-              if (loc is InvenTreeStockLocation) {
-                final isSelected = isTarget
-                    ? _targetLocation?.pk == loc.pk
-                    : _sourceLocation?.pk == loc.pk;
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: locations.length,
+                  separatorBuilder: (ctx, i) => Divider(height: 1),
+                  itemBuilder: (ctx, i) {
+                    final loc = locations[i];
+                    if (loc is InvenTreeStockLocation) {
+                      final isSelected = isTarget
+                          ? _targetLocation?.pk == loc.pk
+                          : _sourceLocation?.pk == loc.pk;
 
-                return ListTile(
-                  title: Text(loc.name),
-                  subtitle: loc.description.isNotEmpty
-                        ? Text(loc.description)
-                        : null,
-                  leading: Icon(
-                    isSelected ? TablerIcons.check : TablerIcons.home,
-                    color: isSelected ? COLOR_ACTION : Colors.grey,
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    if (mounted) {
-                      setState(() {
-                        if (isTarget) {
-                          _targetLocation = loc;
-                        } else {
-                          _sourceLocation = loc;
-                        }
-                      });
+                      return ListTile(
+                        title: Text(loc.name),
+                        subtitle: loc.description.isNotEmpty
+                              ? Text(loc.description)
+                              : null,
+                        leading: Icon(
+                          isSelected ? TablerIcons.check : TablerIcons.home,
+                          color: isSelected ? COLOR_ACTION : Colors.grey,
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          if (mounted) {
+                            setState(() {
+                              if (isTarget) {
+                                _targetLocation = loc;
+                              } else {
+                                _sourceLocation = loc;
+                                // Clear items if source location changes
+                                _items.clear();
+                                _selectedItemIds.clear();
+                              }
+                            });
+                          }
+                        },
+                      );
                     }
+                    return const SizedBox.shrink();
                   },
-                );
-              }
-              return const SizedBox.shrink();
-            },
+                ),
+              ),
+            ],
           ),
         ),
       ),

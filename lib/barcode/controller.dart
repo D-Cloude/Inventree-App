@@ -1,5 +1,7 @@
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 
+import "package:inventree/helpers.dart";
 import "package:inventree/preferences.dart";
 import "package:inventree/barcode/handler.dart";
 import "package:inventree/widget/progress.dart";
@@ -34,9 +36,54 @@ class InvenTreeBarcodeControllerState
   // Internal state flag to test if we are currently processing a barcode
   bool processingBarcode = false;
 
+  // Buffer for external barcode scanner (keyboard wedge)
+  final StringBuffer scannedCharactersBuffer = StringBuffer();
+  DateTime? lastScanTime;
+
+  /*
+   * Method to handle key events from an external barcode scanner
+   */
+  void handleKeyEvent(KeyEvent event) {
+    if (processingBarcode || !mounted) {
+      return;
+    }
+
+    // Look only for key-down events
+    if (event is! KeyDownEvent) {
+      return;
+    }
+
+    // Ignore events without a character code
+    if (event.character == null) {
+      return;
+    }
+
+    DateTime now = DateTime.now();
+
+    // Clear buffer if the time between keypresses is too long (not a scanner)
+    if (lastScanTime == null ||
+        lastScanTime!.isBefore(now.subtract(Duration(milliseconds: 100)))) {
+      scannedCharactersBuffer.clear();
+    }
+
+    lastScanTime = now;
+
+    if (event.character == "\n" || event.logicalKey == LogicalKeyboardKey.enter) {
+      if (scannedCharactersBuffer.isNotEmpty) {
+        final String data = scannedCharactersBuffer.toString();
+        debug("External scanner: $data");
+        handleBarcodeData(data);
+      }
+
+      scannedCharactersBuffer.clear();
+    } else {
+      scannedCharactersBuffer.write(event.character!);
+    }
+  }
+
   /*
    * Method to handle scanned data.
-   * Any implementing class should call this method when a barcode is scanned.
+...
    * Barcode data should be passed as a string
    */
   Future<void> handleBarcodeData(String? data) async {

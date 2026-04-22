@@ -9,6 +9,7 @@ import "package:inventree/widget/stock/location_display.dart";
 import "package:inventree/widget/stock/stocktake.dart";
 import "package:inventree/widget/stock/location_transfer.dart";
 import "package:inventree/widget/snacks.dart";
+import "package:inventree/widget/progress.dart";
 
 /*
  * Features page - additional functionality beyond main navigation
@@ -27,42 +28,55 @@ class _FeaturesWidgetState extends State<FeaturesWidget> {
    * Show location selection dialog for stocktake
    */
   Future<void> _selectLocationForStocktake() async {
+    showLoadingOverlay();
     final locations = await InvenTreeStockLocation().list();
+    hideLoadingOverlay();
 
     if (locations.isEmpty) {
       showSnackIcon(L10().noLocationsFound, success: false);
       return;
     }
 
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text("${L10().stocktake} - ${L10().selectLocation}"),
-        content: Container(
-          constraints: BoxConstraints(maxHeight: 400),
-          child: ListView.builder(
-            itemCount: locations.length,
-            itemBuilder: (ctx, i) {
-              final loc = locations[i];
-              if (loc is InvenTreeStockLocation) {
-                return ListTile(
-                  title: Text(loc.name),
-                  subtitle: loc.description.isNotEmpty
-                      ? Text(loc.description)
-                      : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => StocktakeWidget(location: loc),
-                      ),
-                    );
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: locations.length,
+                  separatorBuilder: (ctx, i) => Divider(height: 1),
+                  itemBuilder: (ctx, i) {
+                    final loc = locations[i];
+                    if (loc is InvenTreeStockLocation) {
+                      return ListTile(
+                        title: Text(loc.name),
+                        subtitle: loc.description.isNotEmpty
+                            ? Text(loc.description)
+                            : null,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => StocktakeWidget(location: loc),
+                            ),
+                          );
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
                   },
-                );
-              }
-              return const SizedBox.shrink();
-            },
+                ),
+              ),
+            ],
           ),
         ),
       ),

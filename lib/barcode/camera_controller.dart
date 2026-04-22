@@ -14,6 +14,7 @@ import "package:wakelock_plus/wakelock_plus.dart";
 
 import "package:inventree/l10.dart";
 
+import "package:inventree/barcode/barcode.dart";
 import "package:inventree/barcode/handler.dart";
 import "package:inventree/barcode/controller.dart";
 
@@ -43,6 +44,8 @@ class _CameraBarcodeControllerState extends InvenTreeBarcodeControllerState {
 
   double zoomFactor = 0.0;
 
+  final FocusNode _focusNode = FocusNode();
+
   final MobileScannerController controller = MobileScannerController(
     autoZoom: false, // Disable autoZoom as we implement a manual slider
     detectionSpeed: DetectionSpeed.unrestricted,
@@ -59,6 +62,7 @@ class _CameraBarcodeControllerState extends InvenTreeBarcodeControllerState {
   void dispose() {
     super.dispose();
     controller.dispose();
+    _focusNode.dispose();
     WakelockPlus.disable();
   }
 
@@ -291,6 +295,18 @@ class _CameraBarcodeControllerState extends InvenTreeBarcodeControllerState {
   Widget? buildActions(BuildContext context) {
     List<SpeedDialChild> actions = [
       SpeedDialChild(
+        child: const Icon(TablerIcons.barcode),
+        label: L10().scanBarcode,
+        onTap: () async {
+          // Switch to wedge mode
+          await InvenTreeSettingsManager().setValue(INV_BARCODE_SCAN_TYPE, BARCODE_CONTROLLER_WEDGE);
+          if (mounted) {
+            Navigator.pop(context);
+            scanBarcode(context, handler: widget.handler);
+          }
+        },
+      ),
+      SpeedDialChild(
         child: Icon(flash_status ? TablerIcons.bulb_off : TablerIcons.bulb),
         label: L10().toggleTorch,
         onTap: () async {
@@ -370,28 +386,35 @@ class _CameraBarcodeControllerState extends InvenTreeBarcodeControllerState {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: COLOR_APP_BAR,
-        title: Text(L10().scanBarcode),
-      ),
-      floatingActionButton: buildActions(context),
-      body: GestureDetector(
-        onTap: () async {
-          if (mounted) {
-            setState(() {
-              // Toggle the 'scan paused' state
-              scanning_paused = !scanning_paused;
-            });
-          }
-        },
-        child: Stack(
-          children: <Widget>[
-            Column(children: [Expanded(child: BarcodeReader(context))]),
-            topCenterOverlay(),
-            bottomCenterOverlay(),
-            zoomSlider(),
-          ],
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (event) {
+        handleKeyEvent(event);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: COLOR_APP_BAR,
+          title: Text(L10().scanBarcode),
+        ),
+        floatingActionButton: buildActions(context),
+        body: GestureDetector(
+          onTap: () async {
+            if (mounted) {
+              setState(() {
+                // Toggle the 'scan paused' state
+                scanning_paused = !scanning_paused;
+              });
+            }
+          },
+          child: Stack(
+            children: <Widget>[
+              Column(children: [Expanded(child: BarcodeReader(context))]),
+              topCenterOverlay(),
+              bottomCenterOverlay(),
+              zoomSlider(),
+            ],
+          ),
         ),
       ),
     );
