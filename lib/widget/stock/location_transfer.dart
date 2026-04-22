@@ -86,21 +86,23 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                 return ListTile(
                   title: Text(loc.name),
                   subtitle: loc.description.isNotEmpty
-                      ? Text(loc.description)
-                      : null,
+                        ? Text(loc.description)
+                        : null,
                   leading: Icon(
                     isSelected ? TablerIcons.check : TablerIcons.home,
                     color: isSelected ? COLOR_ACTION : Colors.grey,
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
-                    setState(() {
-                      if (isTarget) {
-                        _targetLocation = loc;
-                      } else {
-                        _sourceLocation = loc;
-                      }
-                    });
+                    if (mounted) {
+                      setState(() {
+                        if (isTarget) {
+                          _targetLocation = loc;
+                        } else {
+                          _sourceLocation = loc;
+                        }
+                      });
+                    }
                   },
                 );
               }
@@ -136,10 +138,18 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
           _items = items.whereType<InvenTreeStockItem>().where((item) => item.pk != null).toList();
         });
       }
+    } catch (e, stackTrace) {
+      print("Error loading items: $e");
+      print(stackTrace);
+      if (mounted) {
+        showSnackIcon(L10().errorLoadingItems, success: false);
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -208,7 +218,15 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
    * Transfer a single item
    */
   Future<void> _transferItem(int itemId) async {
-    final item = await InvenTreeStockItem().get(itemId) as InvenTreeStockItem?;
+    InvenTreeStockItem? item;
+    try {
+      item = await InvenTreeStockItem().get(itemId) as InvenTreeStockItem?;
+    } catch (e, stackTrace) {
+      print("Error fetching item $itemId: $e");
+      print(stackTrace);
+      showSnackIcon(L10().itemNotFound, success: false);
+      return;
+    }
 
     if (item == null) {
       showSnackIcon(L10().itemNotFound, success: false);
@@ -216,7 +234,7 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
     }
 
     // Check if item is already in target location
-    if (item.locationId == _targetLocation!.pk) {
+    if (item.locationId != null && item.locationId == _targetLocation!.pk) {
       await barcodeSuccessTone();
       showSnackIcon(L10().itemInLocation, success: true);
       return;
@@ -238,6 +256,10 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
       } else {
         showSnackIcon(L10().transferFailed, success: false);
       }
+    } catch (e, stackTrace) {
+      print("Error transferring item $itemId: $e");
+      print(stackTrace);
+      showSnackIcon(L10().transferFailed, success: false);
     } finally {
       setState(() {
         _isTransferring = false;
@@ -285,17 +307,29 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
 
     try {
       for (final itemId in _selectedItemIds) {
-        final item = await InvenTreeStockItem().get(itemId) as InvenTreeStockItem?;
+        InvenTreeStockItem? item;
+        try {
+          item = await InvenTreeStockItem().get(itemId) as InvenTreeStockItem?;
+        } catch (e) {
+          print("Error fetching item $itemId: $e");
+          failCount++;
+          continue;
+        }
 
-        if (item != null && item.locationId != _targetLocation!.pk) {
-          final result = await item.transferStock(
-            _targetLocation!.pk,
-            notes: L10().locationTransferNote,
-          );
+        if (item != null && item.locationId != null && item.locationId != _targetLocation!.pk) {
+          try {
+            final result = await item.transferStock(
+              _targetLocation!.pk,
+              notes: L10().locationTransferNote,
+            );
 
-          if (result) {
-            successCount++;
-          } else {
+            if (result) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch (e) {
+            print("Error transferring item $itemId: $e");
             failCount++;
           }
         }
@@ -310,16 +344,24 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
       if (mounted) {
         if (failCount > 0) {
           showSnackIcon(
-              "${L10().itemsTransferred(successCount)}, $failCount ${L10().transferFailed}",
+              "$successCount ${L10().itemsTransferred}, $failCount ${L10().transferFailed}",
               success: false);
         } else {
-          showSnackIcon(L10().itemsTransferred(successCount), success: true);
+          showSnackIcon("$successCount ${L10().itemsTransferred}", success: true);
         }
       }
+    } catch (e, stackTrace) {
+      print("Error in bulk transfer: $e");
+      print(stackTrace);
+      if (mounted) {
+        showSnackIcon(L10().transferError, success: false);
+      }
     } finally {
-      setState(() {
-        _isTransferring = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isTransferring = false;
+        });
+      }
     }
   }
 
@@ -355,19 +397,19 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                 child: Column(
                   children: [
                     Text(
-                      "${L10().targetLocation} *",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
+                        "${L10().targetLocation} *",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
                     ),
                     SizedBox(height: 8),
                     ListTile(
-                      title: Text(_targetLocation?.name ?? L10().selectTargetLocation),
-                      leading: Icon(TablerIcons.home, color: COLOR_ACTION),
-                      trailing: Icon(TablerIcons.chevron_right),
-                      onTap: () => _selectLocation(isTarget: true),
+                        title: Text(_targetLocation?.name ?? L10().selectTargetLocation),
+                        leading: Icon(TablerIcons.home, color: COLOR_ACTION),
+                        trailing: Icon(TablerIcons.chevron_right),
+                        onTap: () => _selectLocation(isTarget: true),
                     ),
                   ],
                 ),
@@ -383,19 +425,19 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                 child: Column(
                   children: [
                     Text(
-                      "${L10().sourceLocation} ${L10().optional}",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
+                        "${L10().sourceLocation} ${L10().optional}",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
                     ),
                     SizedBox(height: 8),
                     ListTile(
-                      title: Text(_sourceLocation?.name ?? L10().selectSourceLocation),
-                      leading: Icon(TablerIcons.home, color: Colors.grey),
-                      trailing: Icon(TablerIcons.chevron_right),
-                      onTap: () => _selectLocation(isTarget: false),
+                        title: Text(_sourceLocation?.name ?? L10().selectSourceLocation),
+                        leading: Icon(TablerIcons.home, color: Colors.grey),
+                        trailing: Icon(TablerIcons.chevron_right),
+                        onTap: () => _selectLocation(isTarget: false),
                     ),
                   ],
                 ),
@@ -411,43 +453,43 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                 child: Column(
                   children: [
                     Text(
-                      L10().transferMode,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
+                        L10().transferMode,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
                     ),
                     SizedBox(height: 8),
                     Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<int>(
-                            title: Text(L10().scanMode),
-                            value: 0,
-                            groupValue: _transferMode,
-                            onChanged: (value) {
-                              setState(() {
-                                _transferMode = value!;
-                                _selectedItemIds.clear();
-                                _items.clear();
-                              });
-                            },
+                        children: [
+                          Expanded(
+                            child: RadioListTile<int>(
+                              title: Text(L10().scanMode),
+                              value: 0,
+                              groupValue: _transferMode,
+                              onChanged: (value) {
+                                setState(() {
+                                  _transferMode = value!;
+                                  _selectedItemIds.clear();
+                                  _items.clear();
+                                });
+                              },
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: RadioListTile<int>(
-                            title: Text(L10().listMode),
-                            value: 1,
-                            groupValue: _transferMode,
-                            onChanged: (value) {
-                              setState(() {
-                                _transferMode = value!;
-                              });
-                            },
+                          Expanded(
+                            child: RadioListTile<int>(
+                              title: Text(L10().listMode),
+                              value: 1,
+                              groupValue: _transferMode,
+                              onChanged: (value) {
+                                setState(() {
+                                  _transferMode = value!;
+                                });
+                              },
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
                     ),
                   ],
                 ),
@@ -556,12 +598,14 @@ class _LocationTransferWidgetState extends State<LocationTransferWidget> {
                           itemCount: _items.length,
                           itemBuilder: (ctx, i) {
                             final item = _items[i];
-                            final isSelected = _selectedItemIds.contains(item.pk!);
+                            final itemId = item.pk;
+                            if (itemId == null) return const SizedBox.shrink();
+                            final isSelected = _selectedItemIds.contains(itemId);
 
                             return CheckboxListTile(
                               value: isSelected,
                               onChanged: (value) {
-                                _toggleItemSelection(item.pk!);
+                                _toggleItemSelection(itemId);
                               },
                               title: Text(item.partName),
                               subtitle: Text("${item.partName} - ${item.quantity} ${item.units}"),
@@ -612,7 +656,16 @@ class _LocationTransferBarcodeHandler extends BarcodeHandler {
     }
 
     // Transfer the item
-    final item = await InvenTreeStockItem().get(itemId) as InvenTreeStockItem?;
+    InvenTreeStockItem? item;
+    try {
+      item = await InvenTreeStockItem().get(itemId) as InvenTreeStockItem?;
+    } catch (e, stackTrace) {
+      print("Error fetching item $itemId: $e");
+      print(stackTrace);
+      await barcodeFailureTone();
+      showSnackIcon(L10().itemNotFound, success: false);
+      return;
+    }
 
     if (item == null) {
       await barcodeFailureTone();
@@ -664,17 +717,24 @@ class _LocationTransferBarcodeHandler extends BarcodeHandler {
     }
 
     // Transfer the item
-    final result = await item.transferStock(
-      targetLocation.pk,
-      notes: notes,
-    );
+    try {
+      final result = await item.transferStock(
+        targetLocation.pk,
+        notes: notes,
+      );
 
-    if (result) {
-      await barcodeSuccessTone();
-      showSnackIcon(L10().itemTransferred, success: true);
-    } else {
+      if (result) {
+        await barcodeSuccessTone();
+        showSnackIcon(L10().itemTransferred, success: true);
+      } else {
+        await barcodeFailureTone();
+        showSnackIcon(L10().transferFailed, success: false);
+      }
+    } catch (e, stackTrace) {
+      print("Error transferring item $itemId: $e");
+      print(stackTrace);
       await barcodeFailureTone();
-      showSnackIcon(L10().transferFailed, success: false);
+      showSnackIcon(L10().transferError, success: false);
     }
   }
 }

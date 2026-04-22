@@ -13,6 +13,7 @@ import "package:inventree/barcode/stock.dart";
 import "package:inventree/barcode/tones.dart";
 import "package:inventree/helpers.dart";
 import "package:inventree/inventree/stock.dart";
+import "package:inventree/inventree/sentry.dart";
 import "package:inventree/l10.dart";
 import "package:inventree/widget/snacks.dart";
 
@@ -69,24 +70,35 @@ class _StocktakeState extends State<StocktakeWidget> {
   }
 
   Future<void> _loadLocationItems() async {
-    setState(() => _loading = true);
+    try {
+      setState(() => _loading = true);
 
-    final items = await InvenTreeStockItem().list(filters: {
-      "location": widget.location!.pk.toString(),
-      "in_stock": "true",
-    });
-
-    if (mounted) {
-      setState(() {
-        for (var item in items) {
-          if (item is InvenTreeStockItem) {
-            _entries.add(
-              _StocktakeEntry(item: item, countedQuantity: item.quantity),
-            );
-          }
-        }
-        _loading = false;
+      final items = await InvenTreeStockItem().list(filters: {
+        "location": widget.location!.pk.toString(),
+        "in_stock": "true",
       });
+
+      if (mounted) {
+        setState(() {
+          for (var item in items) {
+            if (item is InvenTreeStockItem && item.pk != null) {
+              _entries.add(
+                _StocktakeEntry(item: item, countedQuantity: item.quantity),
+              );
+            }
+          }
+          _loading = false;
+        });
+      }
+    } catch (error, stackTrace) {
+      sentryReportError("_loadLocationItems", error, stackTrace);
+      print("Error loading location items: $error");
+      print(stackTrace);
+
+      if (mounted) {
+        setState(() => _loading = false);
+        showSnackIcon(L10().errorLoadingItems, success: false);
+      }
     }
   }
 
@@ -97,50 +109,70 @@ class _StocktakeState extends State<StocktakeWidget> {
    * In free-form mode: also adds items not currently in the list.
    */
   void _onItemScanned(InvenTreeStockItem item) {
-    setState(() {
-      for (var entry in _entries) {
-        if (entry.item.pk == item.pk) {
-          entry.isScanned = true;
+    try {
+      setState(() {
+        for (var entry in _entries) {
+          if (entry.item.pk == item.pk) {
+            entry.isScanned = true;
+            showSnackIcon(
+              "${item.partName} — ${L10().stocktakeItemVerified}",
+              success: true,
+            );
+            return;
+          }
+        }
+
+        if (_verificationMode) {
+          // Item not in the pre-loaded list → error
+          barcodeFailureTone();
+          showSnackIcon(L10().stocktakeItemNotFound, success: false);
+        } else {
+          // Free-form mode: add the new item
+          _entries.add(
+            _StocktakeEntry(
+              item: item,
+              countedQuantity: item.quantity,
+              isScanned: true,
+            ),
+          );
           showSnackIcon(
             "${item.partName} — ${L10().stocktakeItemVerified}",
             success: true,
           );
-          return;
         }
+      });
+    } catch (error, stackTrace) {
+      sentryReportError("_onItemScanned", error, stackTrace);
+      print("Error in _onItemScanned: $error");
+      print(stackTrace);
+      if (mounted) {
+        showSnackIcon(L10().errorProcessingItem, success: false);
       }
-
-      if (_verificationMode) {
-        // Item not in the pre-loaded list → error
-        barcodeFailureTone();
-        showSnackIcon(L10().stocktakeItemNotFound, success: false);
-      } else {
-        // Free-form mode: add the new item
-        _entries.add(
-          _StocktakeEntry(
-            item: item,
-            countedQuantity: item.quantity,
-            isScanned: true,
-          ),
-        );
-        showSnackIcon(
-          "${item.partName} — ${L10().stocktakeItemVerified}",
-          success: true,
-        );
-      }
-    });
+    }
   }
 
   void _removeItem(int index) {
     setState(() {
-      _entries.removeAt(index);
+      if (index >= 0 && index < _entries.length) {
+        _entries.removeAt(index);
+      }
     });
   }
 
   Future<void> _scanItem() async {
-    await scanBarcode(
-      context,
-      handler: StocktakeScanItemHandler(_onItemScanned),
-    );
+    try {
+      await scanBarcode(
+        context,
+        handler: StocktakeScanItemHandler(_onItemScanned),
+      );
+    } catch (error, stackTrace) {
+      sentryReportError("_scanItem", error, stackTrace);
+      print("Error scanning item: $error");
+      print(stackTrace);
+      if (mounted) {
+        showSnackIcon(L10().errorScanningItem, success: false);
+      }
+    }
   }
 
   /*
@@ -148,45 +180,54 @@ class _StocktakeState extends State<StocktakeWidget> {
    * The CSV uses UTF-8 BOM so Excel opens it with correct encoding.
    */
   Future<void> _exportResults() async {
-    final StringBuffer csv = StringBuffer();
+    try {
+      final StringBuffer csv = StringBuffer();
 
-    // UTF-8 BOM for Excel Korean compatibility
-    csv.write("\uFEFF");
-    csv.writeln(
-      "${L10().stocktakeCsvPartName},"
-      "${L10().stocktakeCsvBatch},"
-      "${L10().stocktakeCsvLocation},"
-      "${L10().stocktakeCsvQuantity},"
-      "${L10().stocktakeCsvStatus}",
-    );
-
-    for (var entry in _entries) {
-      String cell(String s) => '"${s.replaceAll('"', '""')}"';
-      final verified =
-          entry.isScanned ? L10().stocktakeVerified : L10().stocktakeUnverified;
+      // UTF-8 BOM for Excel Korean compatibility
+      csv.write("\uFEFF");
       csv.writeln(
-        "${cell(entry.item.partName)},"
-        "${cell(entry.item.batch)},"
-        "${cell(entry.item.locationPathString)},"
-        "${entry.countedQuantity},"
-        "$verified",
+        "${L10().stocktakeCsvPartName},"
+        "${L10().stocktakeCsvBatch},"
+        "${L10().stocktakeCsvLocation},"
+        "${L10().stocktakeCsvQuantity},"
+        "${L10().stocktakeCsvStatus}",
       );
+
+      for (var entry in _entries) {
+        String cell(String s) => '"${s.replaceAll('"', '""')}"';
+        final verified =
+            entry.isScanned ? L10().stocktakeVerified : L10().stocktakeUnverified;
+        csv.writeln(
+          "${cell(entry.item.partName)},"
+          "${cell(entry.item.batch)},"
+          "${cell(entry.item.locationPathString)},"
+          "${entry.countedQuantity},"
+          "$verified",
+        );
+      }
+
+      final Directory dir = await getTemporaryDirectory();
+      final String ts = DateTime.now()
+          .toIso8601String()
+          .replaceAll(":", "-")
+          .split(".")
+          .first;
+      final String path = "${dir.path}/stocktake_$ts.csv";
+
+      final File file = File(path);
+      await file.writeAsString(csv.toString(), encoding: utf8);
+
+      await OpenFilex.open(path);
+
+      showSnackIcon(L10().stocktakeExported, success: true);
+    } catch (error, stackTrace) {
+      sentryReportError("_exportResults", error, stackTrace);
+      print("Error exporting results: $error");
+      print(stackTrace);
+      if (mounted) {
+        showSnackIcon(L10().errorExportingResults, success: false);
+      }
     }
-
-    final Directory dir = await getTemporaryDirectory();
-    final String ts = DateTime.now()
-        .toIso8601String()
-        .replaceAll(":", "-")
-        .split(".")
-        .first;
-    final String path = "${dir.path}/stocktake_$ts.csv";
-
-    final File file = File(path);
-    await file.writeAsString(csv.toString(), encoding: utf8);
-
-    await OpenFilex.open(path);
-
-    showSnackIcon(L10().stocktakeExported, success: true);
   }
 
   Future<void> _submitStocktake() async {
@@ -197,30 +238,44 @@ class _StocktakeState extends State<StocktakeWidget> {
 
     setState(() => _submitting = true);
 
-    final List<Map<String, dynamic>> items = _entries
-        .map(
-          (e) => {
-            "pk": "${e.item.pk}",
-            "quantity": "${e.countedQuantity}",
-          },
-        )
-        .toList();
+    try {
+      final List<Map<String, dynamic>> items = _entries
+          .where((e) => e.item.pk != null)
+          .map(
+            (e) => {
+              "pk": "${e.item.pk}",
+              "quantity": "${e.countedQuantity}",
+            },
+          )
+          .toList();
 
-    final response = await InvenTreeAPI().post(
-      "stock/count/",
-      body: {"items": items, "notes": ""},
-      expectedStatusCode: null,
-    );
+      final response = await InvenTreeAPI().post(
+        "stock/count/",
+        body: {"items": items, "notes": ""},
+        expectedStatusCode: null,
+      );
 
-    setState(() => _submitting = false);
-
-    if (response.isValid() &&
-        (response.statusCode == 200 || response.statusCode == 201)) {
-      showSnackIcon(L10().stocktakeSuccess, success: true);
-      await _exportResults();
-      setState(() => _entries.clear());
-    } else {
-      showSnackIcon(L10().requestFailed, success: false);
+      if (response.isValid() &&
+          (response.statusCode == 200 || response.statusCode == 201)) {
+        showSnackIcon(L10().stocktakeSuccess, success: true);
+        await _exportResults();
+        if (mounted) {
+          setState(() => _entries.clear());
+        }
+      } else {
+        showSnackIcon(L10().requestFailed, success: false);
+      }
+    } catch (error, stackTrace) {
+      sentryReportError("_submitStocktake", error, stackTrace);
+      print("Error submitting stocktake: $error");
+      print(stackTrace);
+      if (mounted) {
+        showSnackIcon(L10().stocktakeSubmitError, success: false);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
     }
   }
 

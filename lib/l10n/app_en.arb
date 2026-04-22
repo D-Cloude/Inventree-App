@@ -1969,5 +1969,23 @@
   "@items": {},
 
   "itemInLocation": "Item already in location",
-  "@itemInLocation": {}
+  "@itemInLocation": {},
+
+  "errorLoadingItems": "Error loading items",
+  "@errorLoadingItems": {},
+
+  "errorProcessingItem": "Error processing item",
+  "@errorProcessingItem": {},
+
+  "errorScanningItem": "Error scanning item",
+  "@errorScanningItem": {},
+
+  "errorExportingResults": "Error exporting results",
+  "@errorExportingResults": {},
+
+  "stocktakeSubmitError": "Error submitting stocktake",
+  "@stocktakeSubmitError": {},
+
+  "transferError": "Transfer failed",
+  "@transferError": {}
 }
