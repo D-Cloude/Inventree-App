@@ -13,6 +13,7 @@ import "package:inventree/barcode/handler.dart";
 import "package:inventree/preferences.dart";
 import "package:one_context/one_context.dart";
 import "package:inventree/api_form.dart";
+import "package:inventree/helpers.dart";
 
 /*
  * Location Transfer Widget - Transfer stock items between locations
@@ -653,21 +654,78 @@ class _LocationTransferBarcodeHandler extends BarcodeHandler {
   String getOverlayText(BuildContext context) => L10().scanItemToTransfer;
 
   @override
+  Future<void> onBarcodeUnknown(Map<String, dynamic> data) async {
+    debug("LocationTransfer onBarcodeUnknown called with data: ${data.toString()}");
+    debug("Target location: ${targetLocation.name}");
+
+    // Try to extract barcode data for manual processing
+    final barcodeData = data["barcode_data"]?.toString()?.trim();
+    if (barcodeData != null && barcodeData.isNotEmpty) {
+      debug("Barcode data: $barcodeData");
+
+      // Try to parse as item ID
+      final parsedId = int.tryParse(barcodeData);
+      if (parsedId != null) {
+        debug("Parsed barcode as item ID: $parsedId");
+        // Try to fetch the item directly
+        try {
+          final item = await InvenTreeStockItem().get(parsedId);
+          if (item is InvenTreeStockItem) {
+            debug("Found item: ${item.partName} (ID: ${item.pk})");
+            // Call onBarcodeMatched with constructed data
+            await onBarcodeMatched({"stockitem": {"pk": item.pk}});
+            return;
+          }
+        } catch (e) {
+          debug("Error fetching item $parsedId: $e");
+        }
+      }
+    }
+
+    await super.onBarcodeUnknown(data);
+  }
+
+  @override
   Future<void> onBarcodeMatched(Map<String, dynamic> data) async {
+    debug("LocationTransfer onBarcodeMatched called with data: ${data.toString()}");
+
+    // Debug: Print all keys in the response
+    debug("Response keys: ${data.keys.toList()}");
+
     // Get the stock item from the response
     int? itemId;
 
-    // Try to get stockitem pk from response
-    if (data.containsKey("stockitem")) {
-      final stockitemData = data["stockitem"];
-      if (stockitemData is Map) {
-        itemId = stockitemData["pk"] as int?;
-      } else if (stockitemData is int) {
-        itemId = stockitemData;
+    // Try multiple possible keys for stockitem data (InvenTree API may vary)
+    for (final key in ["stockitem", "item", "stock_item"]) {
+      if (data.containsKey(key)) {
+        final stockitemData = data[key];
+        debug("Found '$key' data: ${stockitemData.toString()} (type: ${stockitemData.runtimeType})");
+        if (stockitemData is Map) {
+          itemId = stockitemData["pk"] as int?;
+          debug("Extracted itemId from '$key.pk': $itemId");
+          break;
+        } else if (stockitemData is int) {
+          itemId = stockitemData;
+          debug("Extracted itemId directly from '$key': $itemId");
+          break;
+        }
+      }
+    }
+
+    // If still no itemId, try to parse the barcode as an item ID directly
+    if (itemId == null) {
+      final barcodeData = data["barcode_data"]?.toString()?.trim();
+      if (barcodeData != null && barcodeData.isNotEmpty) {
+        final parsedId = int.tryParse(barcodeData);
+        if (parsedId != null) {
+          debug("Parsed barcode as item ID: $parsedId");
+          itemId = parsedId;
+        }
       }
     }
 
     if (itemId == null) {
+      debug("No itemId found in response, calling onBarcodeUnknown");
       await onBarcodeUnknown(data);
       return;
     }

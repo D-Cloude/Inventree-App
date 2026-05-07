@@ -76,18 +76,6 @@ InvenTree-App을 포크하여 한글화 및 기능 개선을 진행한 재고 �
 
 ---
 
-## 설치
-
-### Google Play Store (Android)
-
-[Google Play Store](https://play.google.com/store/apps/details?id=inventree.inventree_app)에서 설치
-
-### Apple App Store (iOS)
-
-[Apple App Store](https://apps.apple.com/au/app/inventree/id1581731101)에서 설치
-
----
-
 ## 개발 환경 설정
 
 ### 요구 사항
