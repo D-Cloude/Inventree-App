@@ -335,3 +335,97 @@ class ScanParentLocationHandler extends BarcodeScanStockLocationHandler {
     }
   }
 }
+
+/*
+ * Barcode handler for scanning stock items by patch code (patch code) and automatically transferring them.
+ *
+ * - Searches for stock items by patch code when barcode is scanned
+ * - Automatically transfers the stock item to the specified location
+ * - Adds a note indicating the item was automatically moved
+ */
+class StockItemScanByPatchCodeHandler extends BarcodeHandler {
+  StockItemScanByPatchCodeHandler(this.targetLocation);
+
+  final InvenTreeStockLocation targetLocation;
+
+  @override
+  bool get searchByBatchCode => true;
+
+  @override
+  String getOverlayText(BuildContext context) => L10().barcodeScanItem;
+
+  @override
+  Future<void> onBarcodeMatched(Map<String, dynamic> data) async {
+    // Check if the barcode directly points to a stock item
+    if (data.containsKey("stockitem")) {
+      int pk = (data["stockitem"]?["pk"] ?? -1) as int;
+
+      if (pk > 0) {
+        final item = await InvenTreeStockItem().get(pk) as InvenTreeStockItem?;
+
+        if (item != null) {
+          await _transferStockItem(item);
+          return;
+        }
+      }
+    }
+
+    barcodeFailureTone();
+    showSnackIcon(L10().invalidStockItem, success: false);
+  }
+
+  @override
+  Future<void> onBarcodeUnknown(Map<String, dynamic> data) async {
+    String barcode = (data["barcode_data"] ?? "") as String;
+
+    // Try to find the stock item by patch code first
+    final stockItems = await InvenTreeStockItem().list(
+      filters: {"patch": barcode},
+    );
+
+    if (stockItems.isNotEmpty) {
+      final item = stockItems.first as InvenTreeStockItem;
+      await _transferStockItem(item);
+      return;
+    }
+
+    // Also try batch code as fallback
+    final batchItems = await InvenTreeStockItem().list(
+      filters: {"batch": barcode},
+    );
+
+    if (batchItems.isNotEmpty) {
+      final item = batchItems.first as InvenTreeStockItem;
+      await _transferStockItem(item);
+      return;
+    }
+
+    barcodeFailureTone();
+    showSnackIcon(L10().barcodeNoMatch, success: false);
+  }
+
+  Future<void> _transferStockItem(InvenTreeStockItem item) async {
+    // Check if item is already in the target location
+    if (item.locationId == targetLocation.pk) {
+      barcodeSuccessTone();
+      showSnackIcon(L10().itemInLocation, success: true);
+      return;
+    }
+
+    // Add note for automatic transfer
+    String note = L10().autoTransferNote;
+
+    // Perform the stock transfer
+    final bool result = await item.transferStock(
+      targetLocation.pk,
+      notes: note,
+    );
+
+    if (result) {
+      barcodeSuccess(L10().barcodeScanIntoLocationSuccess);
+    } else {
+      barcodeFailureTone();
+      showSnackIcon(L10().barcodeScanIntoLocationFailure, success: false);
+    }
+  }
+}

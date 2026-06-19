@@ -2,3 +2,6 @@
 .idea
 build
 .vscode
+
+# FVM Version Cache
+.fvm/

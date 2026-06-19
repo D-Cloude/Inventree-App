@@ -262,6 +262,8 @@ class InvenTreeStockItem extends InvenTreeModel {
 
   String get batch => getString("batch");
 
+  String get patch => getString("patch");
+
   int get partId => getInt("part");
 
   double? get purchasePrice {

@@ -3,7 +3,7 @@
   "packages": [
     {
       "name": "_fe_analyzer_shared",
-      "rootUri": "file:///home/leehojun/.pub-cache/hosted/pub.dev/_fe_analyzer_shared-93.0.0",
+      "rootUri": "file:///home/leehojun/.pub-cache/hosted/pub.dev/_fe_analyzer_shared-96.0.0",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -15,7 +15,7 @@
     },
     {
       "name": "analyzer",
-      "rootUri": "file:///home/leehojun/.pub-cache/hosted/pub.dev/analyzer-10.0.1",
+      "rootUri": "file:///home/leehojun/.pub-cache/hosted/pub.dev/analyzer-10.2.0",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
